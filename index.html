@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shri Shyam Motors - Stock & Billing</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#18212b}
+header{background:#123d68;color:white;padding:14px 16px;text-align:center}
+header h1{font-size:22px;margin:0 0 4px}header p{margin:0;font-size:13px}
+nav{display:flex;gap:8px;padding:10px;background:white;position:sticky;top:0;z-index:2;box-shadow:0 1px 5px #bbb}
+nav button{flex:1;border:0;border-radius:8px;padding:11px;background:#e8eef5;font-weight:bold}
+nav button.active{background:#123d68;color:white}
+main{padding:14px;max-width:900px;margin:auto}.card{background:white;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px #d9dde2}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+label{font-size:12px;font-weight:bold}input{width:100%;padding:11px;border:1px solid #cbd5df;border-radius:8px;margin-top:4px;font-size:15px}
+button.primary{background:#123d68;color:white;border:0;border-radius:8px;padding:11px 16px;font-weight:bold}
+button.danger{background:#c62828;color:white;border:0;border-radius:7px;padding:7px 10px}
+button.edit{background:#e7f0fa;color:#123d68;border:0;border-radius:7px;padding:7px 10px}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.search{font-size:16px;padding:13px}
+.result{padding:11px;border:1px solid #d8e0e8;border-radius:8px;margin-top:7px;cursor:pointer}
+.result strong{display:block}.muted{color:#697786;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 5px;border-bottom:1px solid #e5e9ed;text-align:left}th{background:#f1f4f7}
+.hidden{display:none}.empty{padding:20px;text-align:center;color:#777}
+.total{font-size:20px;font-weight:bold;text-align:right;margin-top:10px}
+.small{font-size:12px;color:#657381}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 15px;border-radius:20px;display:none;z-index:5}
+@media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}th:nth-child(1),td:nth-child(1){display:none}}
+
+.partSuggestions{position:relative;z-index:10}.partSuggest{padding:10px;border:1px solid #d8e0e8;border-radius:8px;margin-top:6px;background:#fff;cursor:pointer}.partSuggest strong{display:block}.partSuggest .muted{display:block;margin-top:3px}.partSuggest:hover{background:#f4f7fa}
+</style>
+</head>
+<body>
+<header><h1>श्री श्याम मोटर्स</h1><p>Stock & Billing System • Taranagar, Churu, Rajasthan</p></header>
+<nav>
+<button id="stockTab" class="active" onclick="showTab('stock')">📦 Stock</button>
+<button id="billTab" onclick="showTab('bill')">🧾 Cash Invoice</button>
+</nav>
+<main>
+
+<section id="stock">
+<div class="card">
+<h2>➕ Add / Edit Part</h2>
+<input type="hidden" id="editId">
+<div class="grid">
+<div><label>Part No.</label><input id="partNo" placeholder="जैसे 04465-XXXXX" oninput="partNumberSearch()" autocomplete="off"><div id="partNoResults" class="partSuggestions"></div></div>
+<div><label>Part Name</label><input id="partName" placeholder="जैसे Brake Shoe Set" oninput="partNameSearch()" autocomplete="off"><div id="partNameResults" class="partSuggestions"></div></div>
+<div><label>Rate (₹)</label><input id="rate" type="number" min="0" placeholder="0"></div>
+<div><label>Current Stock</label><input id="stock" type="number" min="0" placeholder="0" readonly></div>
+<div><label>नया माल आया / New Stock</label><input id="newStock" type="number" min="0" value="0" placeholder="0"></div>
+</div>
+<div class="actions"><button class="primary" onclick="savePart()">Save Part</button><button class="edit" onclick="clearForm()">Clear</button></div>
+<p class="small">Current Stock अपने-आप दिखेगा। नया माल केवल “नया माल आया / New Stock” में डालें। Existing Part में यह quantity Current Stock में जुड़ जाएगी।</p>
+</div>
+
+<div class="card">
+<h2>📦 All Stock</h2>
+<div id="stockTable"></div>
+</div>
+</section>
+
+<section id="bill" class="hidden">
+<div class="card">
+<h2>🧾 Cash Invoice</h2><div class="small" id="editBillNote"></div>
+<div class="grid">
+<div><label>Bill No.</label><input id="billNo" readonly></div>
+<div><label>Customer Name</label><input id="custName" oninput="customerLookup('name')" autocomplete="off"><div id="customerNameResults" class="partSuggestions"></div></div>
+<div><label>Mobile Number</label><input id="custMobile" inputmode="numeric" oninput="customerLookup('mobile')" autocomplete="off"><div id="customerMobileResults" class="partSuggestions"></div></div>
+<div><label>Vehicle Number</label><input id="vehicleNo" oninput="customerLookup('vehicle')" autocomplete="off"><div id="customerVehicleResults" class="partSuggestions"></div></div>
+<div><label>Vehicle Model</label><input id="vehicleModel"></div>
+<div><label>Customer Address</label><input id="custAddress"></div>
+<div><label>Kilometers Reading</label><input id="kmReading" type="number" min="0" step="1"></div>
+</div>
+<div style="margin-top:10px"><label>Labour Total (₹)</label><input id="labourTotal" type="number" min="0" step="0.01" value="0"></div>
+<div id="customerHistory" class="small" style="margin-top:10px"></div>
+<hr>
+<label>Part Search</label>
+<input class="search" id="billSearch" oninput="billSearch()" placeholder="नाम या Part No. से खोजें...">
+<div id="billResults"></div>
+<div id="billItems"></div>
+<div class="total">Grand Total: ₹<span id="grandTotal">0.00</span></div>
+<div class="actions"><button class="primary" onclick="saveBill()">Save Bill</button><button class="edit" onclick="clearBill()">New Bill</button><button class="edit" id="cancelEditBtn" onclick="clearBill()" style="display:none">Cancel Edit</button></div>
+<p class="small">Bill save होने पर चुने हुए parts का Current Stock अपने-आप कम होगा।</p>
+</div>
+<div class="card"><h2>📋 Saved Bills</h2><div id="bills"></div></div>
+</section>
+
+</main><div id="toast" class="toast"></div>
+
+<script>
+const key='ssm_parts_v2', billKey='ssm_bills_v2';
+let parts=[], bills=[], billItems=[]; let editingBillId=null; let editingOriginalItems=[];
+
+function loadData(){
+  try{
+    parts=JSON.parse(localStorage.getItem(key)||'[]');
+    bills=JSON.parse(localStorage.getItem(billKey)||'[]');
+  }catch(e){ parts=[]; bills=[]; }
+}
+function persist(){
+  try{
+    localStorage.setItem(key,JSON.stringify(parts));
+    localStorage.setItem(billKey,JSON.stringify(bills));
+    renderStock(); renderBills();
+    return true;
+  }catch(e){
+    toast('Storage में सेव नहीं हो पाया');
+    return false;
+  }
+}
+function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+function clearSuggestions(){document.getElementById('partNoResults').innerHTML='';document.getElementById('partNameResults').innerHTML=''}
+function partNameSearch(){
+ let q=document.getElementById('partName').value.trim().toLowerCase();
+ let box=document.getElementById('partNameResults');
+ if(!q){box.innerHTML='';return}
+ let list=parts.filter(p=>String(p.name||'').toLowerCase().includes(q));
+ box.innerHTML=list.map(p=>`<div class="partSuggest" data-part-id="${esc(p.id)}"><strong>${esc(p.name)}</strong><span class="muted">Part No: ${esc(p.no)} • Rate ₹${p.rate} • Current Stock: ${p.stock}</span></div>`).join('')||'';
+}
+function partNumberSearch(){
+ let q=document.getElementById('partNo').value.trim().toLowerCase();
+ let box=document.getElementById('partNoResults');
+ if(!q){box.innerHTML='';return}
+ let list=parts.filter(p=>String(p.no||'').toLowerCase().includes(q));
+ box.innerHTML=list.map(p=>`<div class="partSuggest" data-part-id="${esc(p.id)}"><strong>${esc(p.no)}</strong><span class="muted">${esc(p.name)} • Rate ₹${p.rate} • Current Stock: ${p.stock}</span></div>`).join('')||'';
+}
+document.addEventListener('click',function(e){
+ let el=e.target.closest('.partSuggest');
+ if(el && el.dataset.partId) selectSavedPart(el.dataset.partId);
+});
+
+function selectSavedPart(id){
+ let p=parts.find(x=>x.id===id); if(!p)return;
+ document.getElementById('editId').value=p.id;
+ document.getElementById('partNo').value=p.no;
+ document.getElementById('partName').value=p.name;
+ document.getElementById('rate').value=p.rate;
+ document.getElementById('stock').value=p.stock;
+ document.getElementById('newStock').value=0;
+ document.getElementById('stock').readOnly=true;
+ clearSuggestions();
+ toast('Part चुना गया — Part Number, Name और Rate अपने-आप भर गए');
+}
+function clearForm(){
+ ['editId','partNo','partName','rate','stock'].forEach(id=>document.getElementById(id).value='');
+ document.getElementById('newStock').value=0;
+ document.getElementById('stock').readOnly=true;
+ clearSuggestions();
+}
+function savePart(){
+ let id=document.getElementById('editId').value, no=document.getElementById('partNo').value.trim(), name=document.getElementById('partName').value.trim();
+ let rate=Number(document.getElementById('rate').value), newStock=Number(document.getElementById('newStock').value);
+ if(!no||!name||!Number.isFinite(rate)||rate<0||!Number.isFinite(newStock)||newStock<0)return toast('Part Number, Part Name, Rate और New Stock सही भरें');
+ let duplicate=parts.find(p=>String(p.no).toLowerCase()===no.toLowerCase() && p.id!==id);
+ if(duplicate)return toast('यह Part Number पहले से मौजूद है');
+ if(id){
+   let p=parts.find(x=>x.id===id);
+   if(!p)return toast('Part नहीं मिला');
+   p.no=no; p.name=name; p.rate=rate; p.stock=Number(p.stock||0)+newStock;
+ } else {
+   parts.push({id:(crypto.randomUUID?crypto.randomUUID():Date.now().toString()),no,name,rate,stock:newStock});
+ }
+ if(persist()){ clearForm(); toast(id?'Part अपडेट हो गया और New Stock जुड़ गया':'Part सेव हो गया'); }
+}
+function renderStock(){
+ let list=parts;
+ document.getElementById('stockTable').innerHTML=list.length?`<table><tr><th>Part No.</th><th>Name</th><th>Rate</th><th>Stock</th><th>Action</th></tr>${list.map(p=>`<tr><td>${esc(p.no)}</td><td>${esc(p.name)}</td><td>₹${p.rate}</td><td>${p.stock}</td><td><button class="edit" onclick="editPart('${p.id}')">Edit</button> <button class="danger" onclick="deletePart('${p.id}')">Delete</button></td></tr>`).join('')}</table>`:'<div class="empty">अभी कोई पार्ट सेव नहीं है। ऊपर Add Part से जोड़ें।</div>';
+}
+function searchParts(){renderStock()}
+function selectStock(id){editPart(id)}
+function editPart(id){let p=parts.find(x=>x.id===id);if(!p)return;['editId','partNo','partName','rate','stock'].forEach((k,i)=>document.getElementById(k).value=[p.id,p.no,p.name,p.rate,p.stock][i]);document.getElementById('newStock').value=0;document.getElementById('stock').readOnly=true;scrollTo(0,0)}
+function deletePart(id){if(!confirm('क्या यह पार्ट Delete करना है?'))return;parts=parts.filter(p=>p.id!==id);persist();toast('Part Delete हो गया')}
+function customerLookup(field){
+ if(editingBillId)return;
+ let value=String(document.getElementById(field==='name'?'custName':field==='mobile'?'custMobile':'vehicle').value||'').trim().toLowerCase();
+ let box=document.getElementById(field==='name'?'customerNameResults':field==='mobile'?'customerMobileResults':'customerVehicleResults');
+ box.innerHTML='';
+ document.getElementById('customerHistory').innerHTML='';
+ if(!value)return;
+ let matches=bills.filter(b=>{
+   let v=String(field==='name'?b.name:field==='mobile'?b.mobile:b.vehicle||'').trim().toLowerCase();
+   return v && v.includes(value);
+ }).slice(0,8);
+ if(!matches.length)return;
+ box.innerHTML=matches.map(b=>`<div class="partSuggest" data-customer-id="${esc(b.id)}"><strong>${esc(b.name||'Customer')} • ${esc(b.vehicle||'-')}</strong><span class="muted">Mobile: ${esc(b.mobile||'-')} • Last Bill: ${esc(b.billNo||'-')}</span></div>`).join('');
+ if(matches.length===1){
+   let exact=matches[0];
+   let exactValue=String(field==='name'?exact.name:field==='mobile'?exact.mobile:exact.vehicle||'').trim().toLowerCase();
+   if(exactValue===value) fillCustomer(exact.id);
+ }
+}
+function fillCustomer(id){
+ let b=bills.find(x=>x.id===id); if(!b)return;
+ document.getElementById('custName').value=b.name||'';
+ document.getElementById('custMobile').value=b.mobile||'';
+ document.getElementById('custAddress').value=b.address||'';
+ document.getElementById('vehicleNo').value=b.vehicle||'';
+ document.getElementById('vehicleModel').value=b.model||'';
+ document.getElementById('kmReading').value=b.km||'';
+ ['customerNameResults','customerMobileResults','customerVehicleResults'].forEach(x=>document.getElementById(x).innerHTML='');
+ let keyName=String(b.name||'').trim().toLowerCase(), keyMobile=String(b.mobile||'').trim().toLowerCase(), keyVehicle=String(b.vehicle||'').trim().toLowerCase();
+ let hist=bills.filter(x=>String(x.name||'').trim().toLowerCase()===keyName || (keyMobile&&String(x.mobile||'').trim().toLowerCase()===keyMobile) || (keyVehicle&&String(x.vehicle||'').trim().toLowerCase()===keyVehicle)).slice(0,20);
+ document.getElementById('customerHistory').innerHTML=`<div style="font-weight:bold;margin-bottom:5px">📋 इस Customer की History (${hist.length} Bills)</div>`+hist.map(x=>`<div class="result" style="cursor:default"><strong>${esc(x.billNo||'Bill')} • ₹${Number(x.total||0).toFixed(2)}</strong><span class="muted">${esc(x.date||'')} • ${esc(x.vehicle||'')}</span> <button class="edit" onclick="editBill('${x.id}')">✏️ Edit</button> <button class="edit" onclick="printBill('${x.id}')">🖨️ Print / PDF</button></div>`).join('');
+}
+document.addEventListener('click',function(e){
+ let el=e.target.closest('[data-customer-id]');
+ if(el)fillCustomer(el.dataset.customerId);
+});
+
+function billSearch(){
+ let q=document.getElementById('billSearch').value.toLowerCase().trim();
+ let list=parts.filter(p=>q&&(String(p.no).toLowerCase().includes(q)||String(p.name).toLowerCase().includes(q))).slice(0,20);
+ document.getElementById('billResults').innerHTML=list.map(p=>`<div class="result" onclick="addBillItem('${p.id}')"><strong>${esc(p.name)}</strong><span class="muted">Part No: ${esc(p.no)} • Rate ₹${Number(p.rate).toFixed(2)} • Available ${Number(p.stock).toFixed(2)}</span></div>`).join('');
+}
+function addBillItem(id){
+ let p=parts.find(x=>x.id===id);if(!p)return;
+ let old=billItems.find(x=>x.id===id);
+ if(old){ if(Number(old.qty)+1>Number(p.stock)+getOriginalQty(id))return toast('Available Stock से ज्यादा नहीं ले सकते'); old.qty=Number((Number(old.qty)+1).toFixed(2)); }
+ else { if(Number(p.stock)<=0)return toast('इस पार्ट का Stock उपलब्ध नहीं है'); billItems.push({id,qty:1}); }
+ renderBillItems();document.getElementById('billSearch').value='';document.getElementById('billResults').innerHTML='';
+}
+function getOriginalQty(id){let x=editingOriginalItems.find(a=>a.id===id);return x?Number(x.qty):0}
+function maxAllowedQty(id){let p=parts.find(y=>y.id===id);return p?Number(p.stock)+getOriginalQty(id):0}
+function renderBillItems(){
+ let total=0;
+ document.getElementById('billItems').innerHTML=billItems.map((x,i)=>{
+   let p=parts.find(y=>y.id===x.id); if(!p)return '';
+   let amt=Number(p.rate)*Number(x.qty);total+=amt;
+   return `<div class="result"><strong>${esc(p.name)}</strong><span class="muted">Part No: ${esc(p.no)} • Rate ₹${Number(p.rate).toFixed(2)} ×</span><br><label>Quantity</label> <input class="qtyInput" type="number" min="0.1" step="0.1" value="${Number(x.qty)}" onchange="setQty(${i},this.value)" style="width:110px;display:inline-block;margin:4px 5px"><span class="muted">= ₹${amt.toFixed(2)}</span><br><button class="edit" onclick="changeQty(${i},-0.1)">−</button> <button class="edit" onclick="changeQty(${i},0.1)">+</button> <button class="danger" onclick="billItems.splice(${i},1);renderBillItems()">Remove</button></div>`
+ }).join('');
+ document.getElementById('grandTotal').textContent=total.toFixed(2);
+}
+function setQty(i,v){
+ let x=billItems[i],p=parts.find(y=>y.id===x.id); let q=Number(v);
+ if(!Number.isFinite(q)||q<=0){billItems.splice(i,1);renderBillItems();return}
+ if(q>maxAllowedQty(x.id)){q=maxAllowedQty(x.id);toast('Available Stock से ज्यादा नहीं ले सकते')}
+ x.qty=Number(q.toFixed(2));renderBillItems();
+}
+function changeQty(i,d){let x=billItems[i];setQty(i,Number(x.qty)+Number(d))}
+function nextBillNo(){let nums=bills.map(b=>{let m=String(b.billNo||'').match(/(\d+)$/);return m?Number(m[1]):0});let n=Math.max(0,...nums)+1;return 'INV-'+String(n).padStart(4,'0')}
+function saveBill(){
+ if(!billItems.length)return toast('कम से कम एक पार्ट चुनें');
+ for(let x of billItems){
+   let p=parts.find(y=>y.id===x.id);
+   if(!p)return toast('Part नहीं मिला');
+   let old=getOriginalQty(x.id);
+   let delta=Number(x.qty)-old;
+   if(delta>Number(p.stock)+0.000001)return toast(`${p.name} का Stock पर्याप्त नहीं है`);
+ }
+ for(let p of parts){
+   let old=getOriginalQty(p.id);
+   let cur=billItems.find(x=>x.id===p.id);
+   let now=cur?Number(cur.qty):0;
+   let delta=now-old;
+   if(delta)p.stock=Number((Number(p.stock)-delta).toFixed(2));
+ }
+ let partsTotal=billItems.reduce((s,x)=>s+Number(parts.find(p=>p.id===x.id).rate)*Number(x.qty),0);
+ let labour=Number(document.getElementById('labourTotal').value||0);
+ if(!Number.isFinite(labour)||labour<0)labour=0;
+ let total=partsTotal+labour;
+ let data={
+   id:editingBillId||crypto.randomUUID(),
+   billNo:document.getElementById('billNo').value||nextBillNo(),
+   date:editingBillId?(bills.find(b=>b.id===editingBillId)?.date||new Date().toLocaleString('hi-IN')):new Date().toLocaleString('hi-IN'),
+   name:document.getElementById('custName').value,
+   mobile:document.getElementById('custMobile').value,
+   address:document.getElementById('custAddress').value,
+   vehicle:document.getElementById('vehicleNo').value,
+   model:document.getElementById('vehicleModel').value,
+   km:document.getElementById('kmReading').value,
+   labour:labour,
+   partsTotal:Number(partsTotal.toFixed(2)),
+   items:billItems.map(x=>({...x,qty:Number(x.qty)})),
+   total:Number(total.toFixed(2))
+ };
+ if(editingBillId){
+   let idx=bills.findIndex(b=>b.id===editingBillId);
+   if(idx>=0)bills[idx]=data;else bills.unshift(data)
+ }else bills.unshift(data);
+ editingBillId=null;editingOriginalItems=[];
+ persist();
+ toast('Bill सेव हो गया और Stock अपडेट हो गया');
+ clearBill();
+ renderStock();
+ renderBills();
+}
+function clearBill(){
+ editingBillId=null;editingOriginalItems=[];billItems=[];
+ ['billNo','custName','custMobile','custAddress','vehicleNo','vehicleModel','kmReading','billSearch'].forEach(id=>document.getElementById(id).value=''); document.getElementById('labourTotal').value=0;
+ document.getElementById('billNo').value=nextBillNo();document.getElementById('billResults').innerHTML='';['customerNameResults','customerMobileResults','customerVehicleResults'].forEach(x=>document.getElementById(x).innerHTML='');document.getElementById('customerHistory').innerHTML='';document.getElementById('editBillNote').textContent='';document.getElementById('cancelEditBtn').style.display='none';document.querySelector('#bill .primary').textContent='Save Bill';renderBillItems();
+}
+function editBill(id){
+ let b=bills.find(x=>x.id===id);if(!b)return;
+ editingBillId=id;editingOriginalItems=(b.items||[]).map(x=>({...x}));billItems=(b.items||[]).map(x=>({...x}));
+ document.getElementById('billNo').value=b.billNo||id.slice(0,8);document.getElementById('custName').value=b.name||'';document.getElementById('custMobile').value=b.mobile||'';document.getElementById('custAddress').value=b.address||'';document.getElementById('vehicleNo').value=b.vehicle||'';document.getElementById('vehicleModel').value=b.model||'';document.getElementById('kmReading').value=b.km||'';document.getElementById('labourTotal').value=Number(b.labour||0);document.getElementById('billSearch').value='';document.getElementById('billResults').innerHTML='';
+ document.getElementById('editBillNote').textContent='✏️ यह पुराना Bill Edit Mode में है — पार्ट जोड़ें, हटाएँ या Quantity बदलें, फिर Save Bill दबाएँ।';document.getElementById('cancelEditBtn').style.display='inline-block';document.querySelector('#bill .primary').textContent='Update Bill';renderBillItems();showTab('bill');scrollTo(0,0);
+}
+function amountWordsIndian(n){
+ n=Math.round(Number(n)||0);
+ if(n===0)return 'Zero Rupees Only';
+ const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+ const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+ function two(x){if(x<20)return ones[x];return tens[Math.floor(x/10)]+(x%10?' '+ones[x%10]:'')}
+ function group(x){let s='';if(x>=100){s+=ones[Math.floor(x/100)]+' Hundred ';x%=100}if(x)s+=two(x);return s.trim()}
+ let s='';
+ let crore=Math.floor(n/10000000);n%=10000000;
+ let lakh=Math.floor(n/100000);n%=100000;
+ let thousand=Math.floor(n/1000);n%=1000;
+ if(crore)s+=group(crore)+' Crore ';
+ if(lakh)s+=group(lakh)+' Lakh ';
+ if(thousand)s+=group(thousand)+' Thousand ';
+ if(n)s+=group(n);
+ return s.trim()+' Rupees Only';
+}
+function invoiceHTML(b){
+ const PER_PAGE=19;
+ const items=(b.items||[]).map((x,i)=>{
+   let p=parts.find(z=>z.id===x.id);
+   let name=p?p.name:(x.name||'Part');
+   let no=p?p.no:(x.no||'');
+   let rate=p?Number(p.rate):Number(x.rate||0);
+   let qty=Number(x.qty)||0;
+   return {no,name,rate,qty,amount:rate*qty};
+ });
+ const pages=[];
+ if(!items.length) pages.push([]); else for(let i=0;i<items.length;i+=PER_PAGE) pages.push(items.slice(i,i+PER_PAGE));
+ let partsTotal=Number(b.partsTotal);
+ if(!Number.isFinite(partsTotal))partsTotal=items.reduce((s,x)=>s+x.amount,0);
+ let labour=Number(b.labour||0);
+ let grand=Number(b.total);
+ if(!Number.isFinite(grand))grand=partsTotal+labour;
+ const amountWords=amountWordsIndian(grand);
+ const header=()=>`<div class="head"><h3>CASH INVOICE</h3><h1>SHRI SHYAM MOTORS</h1><div class="addr">MISTRI MARKET, TARANAGAR, CHURU, RAJASTHAN</div><div class="mob">Mobile: 9413109494 , 8112251274</div></div><div class="meta"><b>Bill No.: ${esc(b.billNo||'')}</b><b>Date: ${esc(b.date||'')}</b></div>`;
+ const info=()=>`<div class="info"><div class="box"><h4>Customer Details</h4><div><b>Customer Name:</b> ${esc(b.name||'-')}</div><div><b>Mobile:</b> ${esc(b.mobile||'-')}</div><div><b>Address:</b> ${esc(b.address||'-')}</div></div><div class="box"><h4>Vehicle Details</h4><div><b>Vehicle No.:</b> ${esc(b.vehicle||'-')}</div><div><b>Vehicle Model:</b> ${esc(b.model||'-')}</div><div><b>Kilometers Reading:</b> ${esc(b.km||'-')}</div></div></div>`;
+ const pageHTML=pages.map((rows,pi)=>{
+   const isLast=pi===pages.length-1, startNo=pi*PER_PAGE;
+   let itemRows=rows.map((x,i)=>`<tr><td>${startNo+i+1}</td><td>${esc(x.no)}</td><td>${esc(x.name)}</td><td>₹${x.rate.toFixed(2)}</td><td>${x.qty.toFixed(2).replace(/\.00$/,'')}</td><td>₹${x.amount.toFixed(2)}</td></tr>`).join('');
+   if(isLast && pages.length>1){ for(let i=rows.length;i<PER_PAGE;i++) itemRows+='<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>'; }
+   const bottom=pages.length===1?`<div class="finalBottom"><div class="summary"><div><span>Parts Total</span><b>₹${partsTotal.toFixed(2)}</b></div><div><span>Labour Total</span><b>₹${labour.toFixed(2)}</b></div><div class="grand"><span>Grand Total</span><b>₹${grand.toFixed(2)}</b></div></div><div class="words"><b>Amount in Words:</b> ${amountWords}</div><div class="sign"><span class="prop">Proprietor</span><span class="propName">NARESH SHARMA</span></div></div>`:isLast?`<div class="finalBottom"><div class="summary"><div><span>Parts Total</span><b>₹${partsTotal.toFixed(2)}</b></div><div><span>Labour Total</span><b>₹${labour.toFixed(2)}</b></div><div class="grand"><span>Grand Total</span><b>₹${grand.toFixed(2)}</b></div></div><div class="words"><b>Amount in Words:</b> ${amountWords}</div><div class="sign"><span class="prop">Proprietor</span><span class="propName">NARESH SHARMA</span></div></div>`:pi===0?`<div class="finalBottom"><div class="summary"><div><span>Parts Total</span><b>&nbsp;</b></div><div><span>Labour Total</span><b>&nbsp;</b></div><div class="grand"><span>Grand Total</span><b>&nbsp;</b></div></div><div class="words"><b>Amount in Words:</b></div><div class="sign"><span class="prop">Proprietor</span><span class="propName">NARESH SHARMA</span></div></div><div class="continue">CONTINUE...</div>`:`<div class="continue">CONTINUE...</div>`;
+   return `<div class="sheet">${header()}${info()}<table><thead><tr><th>Sr.</th><th>Part No.</th><th>Part Name</th><th>Rate</th><th>Qty.</th><th>Amount</th></tr></thead><tbody>${itemRows}</tbody></table>${bottom}</div>`;
+ }).join('');
+ return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(b.billNo||'Invoice')}</title><style>
+@page{size:A4;margin:8mm}html,body{margin:0;padding:0;background:#fff}body{font-family:Arial,sans-serif;color:#18212b}.sheet{width:100%;height:281mm;position:relative;box-sizing:border-box;padding:0 1mm;border:1px solid #777;page-break-after:always;break-after:page;overflow:hidden}.sheet:last-child{page-break-after:auto;break-after:auto}.head{text-align:center}.head h3{margin:0 0 3px;font-size:14px}.head h1{margin:0;font-size:24px;color:#123d68}.head .addr{font-size:12px;margin-top:2px}.head .mob{font-size:11px;margin-top:2px}.meta{display:flex;justify-content:space-between;border-top:1px solid #333;border-bottom:1px solid #333;padding:5px 2px;font-size:11px;margin-top:5px}.info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.box{border:1px solid #777;padding:7px;min-height:72px}.box h4{margin:0 0 5px;font-size:12px;text-decoration:underline}.box div{margin:3px 0;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #777;padding:4px 3px;height:25px}th{background:#eee;text-align:center}td:nth-child(1),td:nth-child(4),td:nth-child(5),td:nth-child(6){text-align:center}td:nth-child(2){width:17%}td:nth-child(3){width:31%}.continue{position:absolute;bottom:7mm;left:0;right:0;text-align:center;font-size:11px;font-weight:bold}.continueSmall{display:block;margin-top:3px;font-size:8px;font-weight:bold}.finalBottom{position:absolute;left:1mm;right:1mm;bottom:5mm}.summary{margin-left:auto;width:330px;border:1px solid #777}.summary div{display:flex;justify-content:space-between;padding:4px 8px;font-size:11px}.summary .grand{font-weight:bold;font-size:13px;border-top:2px solid #333}.words{margin-top:6px;border:1px solid #777;padding:6px;font-size:11px;min-height:22px}.sign{margin-top:8px;text-align:right;font-size:12px;font-weight:bold;padding-right:4px}.sign .prop{display:block;text-align:center;width:150px;margin-left:auto;margin-bottom:4px}.sign .propName{display:block;text-align:center;width:150px;margin-left:auto;margin-top:1px}@media print{html,body{width:210mm;margin:0;padding:0}.sheet{border:0;width:100%;height:281mm;padding:0;}.continue{bottom:5mm}.finalBottom{bottom:3mm}}</style></head><body>${pageHTML}</body></html>`;
+}
+
+function printBill(id){let b=bills.find(x=>x.id===id);if(!b)return;let w=window.open('','_blank');if(!w){return alert('Pop-up allow करें');}w.document.write(invoiceHTML(b));w.document.close();w.focus();setTimeout(()=>w.print(),300)}
+function deleteBill(id){
+ let b=bills.find(x=>x.id===id);if(!b)return;
+ if(!confirm('यह Bill Delete करें? Bill में इस्तेमाल Parts वापस Stock में जुड़ जाएंगे.'))return;
+ (b.items||[]).forEach(x=>{let p=parts.find(y=>y.id===x.id);if(p)p.stock=Number((Number(p.stock)+Number(x.qty)).toFixed(2))});
+ bills=bills.filter(x=>x.id!==id);persist();toast('Bill Delete हो गया और Stock वापस जुड़ गया');
+}
+function renderBills(){
+ document.getElementById('bills').innerHTML=bills.length?bills.slice(0,50).map(b=>`<div class="result"><strong>${esc(b.billNo||'Bill')} • ₹${Number(b.total||0).toFixed(2)} • ${esc(b.name||'Customer')}</strong><span class="muted">${esc(b.date||'')} • ${esc(b.vehicle||'')}</span><br><button class="edit" onclick="editBill('${b.id}')">✏️ Edit</button> <button class="edit" onclick="printBill('${b.id}')">🖨️ Print / PDF</button> <button class="danger" onclick="deleteBill('${b.id}')">Delete</button></div>`).join(''):'<div class="empty">अभी कोई Saved Bill नहीं है।</div>'
+}
+function showTab(t){document.getElementById('stock').classList.toggle('hidden',t!=='stock');document.getElementById('bill').classList.toggle('hidden',t!=='bill');document.getElementById('stockTab').classList.toggle('active',t==='stock');document.getElementById('billTab').classList.toggle('active',t==='bill');if(t==='bill')renderBills()}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+loadData();renderStock();renderBillItems();renderBills();document.getElementById('billNo').value=nextBillNo();
+</script>
+</body></html>
